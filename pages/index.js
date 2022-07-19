@@ -1,6 +1,104 @@
 import Head from 'next/head'
 import Image from 'next/image'
 import styles from '../styles/Home.module.css'
+import ReactEChartsCore from 'echarts-for-react/lib/core'
+import * as echarts from 'echarts/core'
+import { BarChart, LineChart } from 'echarts/charts'
+import {
+  GridComponent,
+  TitleComponent,
+  TooltipComponent,
+} from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+import sp500data from '../sp500.json'
+import cpi from '../inflation-us.json'
+
+echarts.use([
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  BarChart,
+  CanvasRenderer,
+  LineChart,
+])
+
+const sp500cleanedData = sp500data
+  .filter((row) => new Date(row['Data']) > new Date('1970-01'))
+  .slice(0, -3)
+  .map((row, index) => {
+    return {
+      name: row['Data'].substring(0, 7),
+      value: [new Date(row['Data'].substring(0, 7)), row['Zamkniecie']],
+    }
+  })
+  .slice(13)
+
+const monthlyYearToYearCpi = cpi.map((cpi, index, arr) => {
+  return {
+    ...cpi,
+    value: Math.round((cpi.value / arr[index - 13]?.value - 1) * 1000) / 10,
+  }
+})
+
+const data = monthlyYearToYearCpi
+  .map((cpi) => {
+    return {
+      name: cpi.date,
+      value: [cpi.date, cpi.value],
+    }
+  })
+  .slice(13)
+
+// .slice(0, -400)
+
+const option = {
+  xAxis: {
+    type: 'time',
+    data: cpi.map((cpi) => cpi.date),
+  },
+  yAxis: [
+    {
+      type: 'value',
+      name: 'Inflation',
+      axisLabel: {
+        formatter: '{value} %',
+      },
+      min: -3,
+      max: 17,
+      interval: 2,
+    },
+    {
+      type: 'value',
+      name: 'S&P500',
+      interval: 500,
+    },
+  ],
+  tooltip: {
+    trigger: 'axis',
+  },
+  series: [
+    {
+      data,
+      type: 'line',
+      showSymbol: false,
+      tooltip: {
+        valueFormatter: function (value) {
+          return value + ' %'
+        },
+      },
+    },
+    {
+      data: sp500cleanedData,
+      type: 'line',
+      showSymbol: false,
+      yAxisIndex: 1,
+    },
+  ],
+}
+
+const onChartReadyCallback = () => {
+  console.log(111)
+}
 
 export default function Home() {
   return (
@@ -13,44 +111,16 @@ export default function Home() {
       </Head>
 
       <main className={styles.main}>
-        <h1 className={styles.title}>
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
-
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.js</code>
-        </p>
-
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h2>Documentation &rarr;</h2>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h2>Learn &rarr;</h2>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/canary/examples"
-            className={styles.card}
-          >
-            <h2>Examples &rarr;</h2>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h2>Deploy &rarr;</h2>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
+        <ReactEChartsCore
+          echarts={echarts}
+          option={option}
+          style={{ height: '500px', width: '100%' }}
+          notMerge={true}
+          lazyUpdate={true}
+          theme={'theme_name'}
+          onChartReady={onChartReadyCallback}
+          // onEvents={EventsDict}
+        />
       </main>
 
       <footer className={styles.footer}>
